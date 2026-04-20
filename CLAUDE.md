@@ -40,6 +40,19 @@ Today = D0. Primary reporting day = **D-1** (yesterday, completed day).
 
 ## Execution Steps
 
+### Step 0 — Sync latest instructions from GitHub
+
+**Before doing anything else**, pull the latest instructions from the repo:
+
+```bash
+git -C /home/user/dailyhealthcheckupslack pull origin main
+```
+
+- **If pull succeeds:** re-read `/home/user/dailyhealthcheckupslack/CLAUDE.md` and `/home/user/dailyhealthcheckupslack/.claude/skills/quicktv-daily-health-metric.md` — those are now the authoritative instructions for this run. Discard anything already loaded from this file and start fresh from the pulled versions.
+- **If pull fails** (network error, auth error, any non-zero exit): log `⚠️ GitHub sync failed — using cached instructions` and continue with the instructions already loaded in this session. Do NOT abort the routine.
+
+---
+
 ### Step 1 — Fetch the aggregated report row
 
 Run a **single query** via BigQuery MCP:
