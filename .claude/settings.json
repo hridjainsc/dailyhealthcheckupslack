@@ -15,7 +15,28 @@
             "mcp__Slack__slack_search_public",
             "mcp__Slack__slack_search_public_and_private",
             "mcp__Slack__slack_search_users",
-            "mcp__Slack__slack_send_message"
+            "mcp__Slack__slack_send_message",
+            "mcp__Slack__slack_send_message_draft",
+            "Bash(git -C /home/user/dailyhealthcheckupslack pull *)",
+            "Bash(git -C /home/user/dailyhealthcheckupslack push *)",
+            "Bash(git -C /home/user/dailyhealthcheckupslack add *)",
+            "Bash(git -C /home/user/dailyhealthcheckupslack commit *)",
+            "Bash(git -C /home/user/dailyhealthcheckupslack status)",
+            "Bash(git -C /home/user/dailyhealthcheckupslack fetch *)",
+            "Bash(git -C /home/user/dailyhealthcheckupslack log *)",
+            "Bash(git -C /home/user/dailyhealthcheckupslack diff *)",
+            "Bash(git pull *)",
+            "Bash(git push *)",
+            "Bash(git add *)",
+            "Bash(git commit *)",
+            "Bash(git status)",
+            "Bash(git status *)",
+            "Bash(git fetch *)",
+            "Bash(git log *)",
+            "Bash(git diff *)",
+            "Bash(git remote *)",
+            "Bash(git config user.*)",
+            "Bash(mkdir -p *)"
         ]
     }
 }
