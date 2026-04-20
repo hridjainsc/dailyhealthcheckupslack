@@ -1,5 +1,15 @@
+# QuickTV Daily Health Check — Routine Memory
+
+## CRITICAL RULES
+- **ALWAYS use BigQuery Remote MCP** (`mcp__BigQuery-Remote-MCP--ShareChat-__execute_sql_readonly`) — never local MCP
+- **ALWAYS use the exact query below** — do NOT modify it
+- **Slack channel:** `C07BN97UC6N` (`#quicktv-core`) — NOT any test channel
+
 ---
-name: quicktv-daily-health-metric
+
+## BQ Query — USE EXACTLY AS-IS EVERY RUN
+
+---
 description: "Daily L0 health check for QuickTV — fetches the pre-computed aggregated report table, applies RAG status, and sends a formatted report to Slack. Use this skill every morning to run the QuickTV health check."
 ---
 
@@ -13,7 +23,7 @@ Today = D0. Primary reporting day = **D-1** (yesterday, completed day).
 **Slack channel:** `#quicktv-core` (channel ID: `C07BN97UC6N`)
 
 > **Architecture:** All metrics, deltas, and benchmarks are pre-computed by a BQ Scheduled Query
-> at ~08:00 IST into a single aggregated table. The health check is a **single SELECT** on that table —
+> at ~09:00 IST into a single aggregated table. The health check is a **single SELECT** on that table —
 > no manual aggregation or window computation needed.
 > If the agg table is missing or stale, see Error Handling. Source SQL for all upstream tables is in `references/`.
 
@@ -22,8 +32,8 @@ Today = D0. Primary reporting day = **D-1** (yesterday, completed day).
 ## Key Reference Info
 
 - **Timezone:** Always `'Asia/Kolkata'` in all date functions
-- **Execute queries via:** BigQuery Remote MCP (`mcp__BigQuery-Remote-MCP--ShareChat-__execute_sql_readonly`) — ALWAYS use Remote MCP, never local
-- **Agg table scheduled:** ~08:00 IST (after 5 source queries finish at 07:15–07:45 IST)
+- **Execute queries via:** BigQuery MCP (`bigquery-maximal-furnace-783`)
+- **Agg table scheduled:** ~09:00 IST (after 5 source queries finish at 07:15–07:45 IST)
 - **PSR fallback:** `psr_is_fallback = TRUE` means D-1 PSR was unavailable and D-2 was used. Note this in the Slack header.
 
 ---
@@ -32,7 +42,7 @@ Today = D0. Primary reporting day = **D-1** (yesterday, completed day).
 
 ### Step 1 — Fetch the aggregated report row
 
-Run a **single query** via BigQuery Remote MCP:
+Run a **single query** via BigQuery MCP:
 
 ```sql
 SELECT *
@@ -41,9 +51,6 @@ WHERE report_date = DATE_SUB(CURRENT_DATE('Asia/Kolkata'), INTERVAL 1 DAY);
 ```
 
 This returns **one row** with every metric, DMA, and delta already computed. No further aggregation needed.
-
-> Full schema and source SQL for the agg table: `references/query_agg_source.md`
-> Source SQL for the 5 upstream tables: `references/query_a_source.md` … `query_e_source.md`
 
 **If the query returns 0 rows:** the agg scheduled query hasn't run yet or failed — see Error Handling.
 
@@ -85,6 +92,8 @@ Key columns by metric group:
 - `fullsub_vp_users_d1`, `fullsub_vp_users_vs_yday_pct`, `fullsub_vp_users_vs_7dma_pct`, `fullsub_vp_users_vs_30dma_pct`, `fullsub_vp_users_vs_lw_pct`
 
 > **Note:** Revenue values are already in ₹ Lakhs (`_L` suffix). VP time values are already in minutes (`_min` suffix). No unit conversion needed.
+
+> **Note on views:** The agg table is **global only** (all platforms summed). Platform-split and International views are not available from this table. If a platform breakdown is needed for a specific metric, fall back to querying the relevant source table directly.
 
 ---
 
@@ -171,8 +180,6 @@ Use values read in Step 2. Apply thresholds below. **vs SDLW is informational on
 
 If `psr_is_fallback = TRUE`, append `†` to the Trial(of d-2)→FullSub(on d-1) % row and add a footnote: `† PSR uses D-2 (D-1 not yet available)`.
 
-**CRITICAL — Slack code block formatting:** Triple backticks must be on their own lines. Never glue ``` to content on the same line.
-
 ```
 {rag_emoji} *QuickTV Daily Health Check — {Day, DD Mon YYYY}*
 *Overall: {GREEN/AMBER/RED}*  ·  Reporting D-1: {date}  ·  All times IST
@@ -222,13 +229,42 @@ Metric               D-1       vs Yday   vs 7DMA   vs 30DMA   vs SDLW   Status
 • {insight_3}
 ```
 
+---
+name: Slack code block formatting
+description: Slack multi-line code blocks require triple backticks on their own lines, not glued to content
+type: feedback
+originSessionId: ce6bb13a-e057-49d6-b20a-29f2ca1b049a
+---
+When posting Slack messages with multi-line code blocks (e.g. the QuickTV daily health check tables), the opening and closing triple backticks must each be on their own line. Do NOT write ` ```Metric ... ` or ` ... 🟢``` ` with backticks attached to content on the same line.
+
+**Why:** When ``` is glued to text on the same line, Slack parses it inconsistently — section headings and content outside the intended table end up wrapped inside code blocks, breaking the layout. This happened on the 2026-04-18 daily health check post to #quicktv-core.
+
+**How to apply:** For any Slack message using ```...``` fenced code blocks, structure as:
+
+```
+Heading line outside block
+
+```
+table content line 1
+table content line 2
+```
+
+Next heading outside block
+```
+
+Each ``` goes on its own line with nothing else on it. Applies to `slack_send_message`, `slack_send_message_draft`, and canvas tools.
+---
+
+
+
 Send to `#quicktv-core` (C07BN97UC6N) via Slack MCP.
+
 
 ---
 
 ## Error Handling
 
-- **Agg table returns 0 rows:** Wait until after 08:15 IST and retry. Do NOT fall back to querying source tables. Post `:warning: Agg table not yet available for {date}`.
-- **`psr_is_fallback = TRUE`:** Note in header: `PSR date: {psr_report_date} (D-2 fallback)`. Add `†` to PSR row.
-- **Any metric column is NULL:** Mark that row `:warning: N/A` and continue.
-- **`generated_at` from prior day:** Post `:warning: Agg table stale, generated_at = {timestamp}` and do not send data.
+- **Agg table returns 0 rows:** the `quicktv_health_report_agg` scheduled query hasn't run yet or failed. Wait until after 09:15 IST and retry. Do NOT fall back to querying the 5 source tables manually — flag `:warning: Agg table not yet available for {date}` and note the delay.
+- **`psr_is_fallback = TRUE`:** D-1 PSR was unavailable; D-2 value used instead. Note in Slack header: `PSR date: {psr_report_date} (D-2 fallback)`.
+- **Any metric column is NULL:** indicates the upstream source table had a gap for that date. Mark that metric row as `:warning: N/A` and continue with remaining metrics.
+- **Agg table appears stale** (i.e., you run the query and `generated_at` is from a prior day): flag `:warning: Agg table stale, generated_at = {timestamp}` and do not send partial data.
